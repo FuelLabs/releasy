@@ -7,7 +7,7 @@ use crate::error::ManifestFileError;
 /// A toml manifest file describing relations between different repositories.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Manifest {
-    project: BTreeMap<String, Project>,
+    pub(crate) project: BTreeMap<String, Project>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -56,9 +56,21 @@ impl TryFrom<String> for ManifestFile {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct Project {
-    repo: Repo,
+    pub(crate) repo: Repo,
     /// Dependencies of this repo
     dependencies: Option<Vec<String>>,
+}
+
+impl Project {
+    /// Returns a reference to underlying `Repo`.
+    pub fn repo(&self) -> &Repo {
+        &self.repo
+    }
+
+    /// Returns an iterator over dependencies decribed in this `Project`.
+    pub fn dependencies(&self) -> impl Iterator<Item = &String> {
+        self.dependencies.iter().flatten()
+    }
 }
 
 #[cfg(test)]
