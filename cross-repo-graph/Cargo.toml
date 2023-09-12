@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+petgraph = "0.6.4"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_ignored = "0.1.9"
+thiserror = "1.0.48"
+toml = { version = "0.7", features = ["parse"] }
