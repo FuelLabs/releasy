@@ -1,7 +1,9 @@
 [package]
-name = "cross-repo-graph"
-version = "0.1.0"
+name = "releasy-graph"
+version = "0.0.0"
 edition = "2021"
+publish = false
+description = "A utility library for describing cross-repo relations in the form of a dependency graph."
 
 [dependencies]
 petgraph = "0.6.4"
