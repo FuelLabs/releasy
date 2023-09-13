@@ -1,5 +1,5 @@
 [package]
-name = "releasy-handler"
+name = "releasy-emit"
 version = "0.0.0"
 edition = "2021"
 

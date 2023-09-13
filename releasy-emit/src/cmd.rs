@@ -6,13 +6,13 @@ use clap::Parser;
 /// Event details can be provided via flags:
 ///
 /// ```
-/// releasy-handler --event "new-commit" --repo-name "sway" --repo-owner "FuelLabs"
+/// releasy-emit --event "new-commit" --repo-name "sway" --repo-owner "FuelLabs"
 /// ```
 ///
 /// Or a JSON can be used to describe the event, which is more useful for CI applications.
 ///
 /// ```
-/// releasy-handler --json "{ event: "new-commit", repo-name: "sway", repo-owner: "FuelLabs" }"
+/// releasy-emit --json "{ event: "new-commit", repo-name: "sway", repo-owner: "FuelLabs" }"
 /// ```
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

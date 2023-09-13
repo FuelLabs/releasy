@@ -1,3 +1,3 @@
 [workspace]
 resolver = "1"
-members = ["releasy-graph", "releasy-handler"]
+members = ["releasy-graph", "releasy-emit"]
