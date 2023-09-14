@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::plan::Repo;
+use releasy_core::repo::Repo;
 
 #[derive(Error, Debug)]
 pub enum BuildPlanError {

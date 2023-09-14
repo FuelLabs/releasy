@@ -1,12 +1,10 @@
 mod cmd;
-mod event;
-
-use std::env::current_dir;
 
 use clap::Parser;
-use cmd::{Args, DEFAULT_MANIFEST_FILE_NAME};
-use event::Event;
+use cmd::Args;
+use releasy_core::{default::DEFAULT_MANIFEST_FILE_NAME, event::Event};
 use releasy_graph::{manifest::ManifestFile, plan::Plan};
+use std::env::current_dir;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -35,17 +33,13 @@ async fn main() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
-    use releasy_graph::{
-        manifest::ManifestFile,
-        plan::{Plan, Repo},
-    };
-
-    use crate::{
-        cmd::Args,
+    use crate::cmd::Args;
+    use releasy_core::{
         event::{ClientPayload, Event, EventType},
+        repo::Repo,
     };
+    use releasy_graph::{manifest::ManifestFile, plan::Plan};
+    use std::path::PathBuf;
 
     const SWAY_WALLET_SDK_TEST_MANIFEST_FILE_NAME: &str = "repo-plan-sway-wallet-sdk.toml";
 

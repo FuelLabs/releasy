@@ -1,4 +1,4 @@
-use crate::plan::Repo;
+use releasy_core::repo::Repo;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
