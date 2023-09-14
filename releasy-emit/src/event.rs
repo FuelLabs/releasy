@@ -1,8 +1,9 @@
-use crate::cmd::Args;
-use releasy_graph::plan::Repo;
+use crate::cmd::{Args, DEFAULT_MANIFEST_FILE_NAME};
+use anyhow::Context;
+use releasy_graph::{manifest::ManifestFile, plan::Repo};
 use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, str::FromStr};
+use std::{env::current_dir, fmt::Display, str::FromStr};
 
 /// An event to be emitted.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -32,7 +33,8 @@ impl Event {
 
     /// Send this event to a target repo using github API.
     pub async fn send_to_repo(&self, target_repo: &Repo) -> anyhow::Result<()> {
-        let github_token = std::env::var("DISPATCH_TOKEN")?;
+        let github_token =
+            std::env::var("DISPATCH_TOKEN").with_context(|| "missing DISPATCH_TOKEN variable")?;
         let client = reqwest::Client::builder().build()?;
         let request_url = format!(
             "https://api.github.com/repos/{}/{}/dispatches",
@@ -93,10 +95,6 @@ impl TryFrom<Args> for Event {
     type Error = anyhow::Error;
 
     fn try_from(value: Args) -> Result<Self, Self::Error> {
-        /// Handles the case when a JSON is provided from the CLI.
-        fn handle_json(json_str: &str) -> anyhow::Result<Event> {
-            Ok(serde_json::from_str(json_str)?)
-        }
         /// Handles the case when event details are provided via parameters from the CLI.
         fn handle_event_params(
             event: &str,
@@ -110,24 +108,19 @@ impl TryFrom<Args> for Event {
 
             Ok(event)
         }
+        let current_dir = current_dir()?;
+        let manifest_path = value
+            .path
+            .unwrap_or_else(|| current_dir.join(DEFAULT_MANIFEST_FILE_NAME));
+        let manifest_file = ManifestFile::from_file(&manifest_path)?.manifest();
 
-        let json_str = value.json;
-        if let Some(json_str) = json_str {
-            if value.repo_name.is_some() || value.repo_owner.is_some() || value.event.is_some() {
-                anyhow::bail!("--json should be used without any other parameters")
-            }
-            handle_json(&json_str)
-        } else {
-            let event = value
-                .event
-                .ok_or_else(|| anyhow::anyhow!("event should not be emtpy"))?;
-            let repo_name = value
-                .repo_name
-                .ok_or_else(|| anyhow::anyhow!("repo_name should not be emtpy"))?;
-            let repo_owner = value
-                .repo_owner
-                .ok_or_else(|| anyhow::anyhow!("repo_owner should not be emtpy"))?;
-            handle_event_params(&event, &repo_name, &repo_owner)
-        }
+        let current_repo = manifest_file.current_repo();
+
+        let event = value
+            .event
+            .ok_or_else(|| anyhow::anyhow!("event should not be emtpy"))?;
+        let repo_name = current_repo.name();
+        let repo_owner = current_repo.owner();
+        handle_event_params(&event, repo_name, repo_owner)
     }
 }

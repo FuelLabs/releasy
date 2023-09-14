@@ -4,11 +4,9 @@ mod event;
 use std::env::current_dir;
 
 use clap::Parser;
-use cmd::Args;
+use cmd::{Args, DEFAULT_MANIFEST_FILE_NAME};
 use event::Event;
 use releasy_graph::{manifest::ManifestFile, plan::Plan};
-
-const MANIFEST_FILE_NAME: &str = "repo-plan.toml";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -17,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
     let path = args
         .path
         .clone()
-        .unwrap_or_else(|| current_dir.join(MANIFEST_FILE_NAME));
+        .unwrap_or_else(|| current_dir.join(DEFAULT_MANIFEST_FILE_NAME));
     let event = Event::try_from(args)?;
 
     let manifest_file = ManifestFile::from_file(&path)?;
@@ -52,37 +50,16 @@ mod tests {
     const SWAY_WALLET_SDK_TEST_MANIFEST_FILE_NAME: &str = "repo-plan-sway-wallet-sdk.toml";
 
     #[test]
-    fn parse_event_from_json_input() {
-        let json_str = r#"{ "event_type": "new-commit", "client_payload": { "repo": { "name": "sway", "owner": "FuelLabs"} } }"#;
-        let args = Args {
-            event: None,
-            repo_name: None,
-            repo_owner: None,
-            json: Some(json_str.to_string()),
-            path: None,
-        };
-
-        let parsed_event = Event::try_from(args).unwrap();
-        let sway_name = "sway".to_string();
-        let sway_owner = "FuelLabs".to_string();
-        let sway_repo = Repo::new(sway_name, sway_owner);
-        let payload = ClientPayload::new(sway_repo);
-        let expected_event = Event::new(EventType::NewCommit, payload);
-
-        assert_eq!(parsed_event, expected_event)
-    }
-
-    #[test]
     fn parse_event_from_param_input() {
-        let repo_name = "sway".to_string();
+        let test_manifest_file = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join(SWAY_WALLET_SDK_TEST_MANIFEST_FILE_NAME);
+        let repo_name = "fuels-rs".to_string();
         let repo_owner = "FuelLabs".to_string();
         let event_type = "new-commit".to_string();
         let args = Args {
             event: Some(event_type),
-            repo_name: Some(repo_name.clone()),
-            repo_owner: Some(repo_owner.clone()),
-            json: None,
-            path: None,
+            path: Some(test_manifest_file),
         };
 
         let parsed_event = Event::try_from(args).unwrap();
