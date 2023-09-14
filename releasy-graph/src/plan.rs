@@ -30,9 +30,22 @@ impl Repo {
     pub fn new(name: String, owner: String) -> Self {
         Self { name, owner }
     }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn owner(&self) -> &str {
+        &self.owner
+    }
 }
 
 /// A plan is describing dependency relations between different repos.
+///
+/// A node in the plan's graph represents a repository.
+///
+/// An edge between `node a` to `node b` means `node b` depends on `node a`. So any event happening
+/// in the `node a` should be reported to `node b`.
 pub struct Plan {
     graph: Graph,
     repo_to_node: HashMap<Repo, NodeIx>,
@@ -42,28 +55,28 @@ impl Plan {
     /// Try to generate a `BuildPlan` from a `Manifest`.
     pub fn try_from_manifest(manifest: Manifest) -> Result<Self, BuildPlanError> {
         let mut graph = Graph::new();
-        let project_mapping = manifest.project;
+        let repo_mapping = manifest.repo;
 
-        // Create nodes, for each project in the map create a node and it to the graph.
+        // Create nodes, for each repo in the map create a node and it to the graph.
         // While adding the nodes, keeps a map between node index and the key used to describe that
         // repo from the manifest and repo to the node index.
         let mut key_to_node = HashMap::new();
         let mut repo_to_node = HashMap::new();
 
-        for (key, project) in project_mapping.iter() {
-            let node_ix = graph.add_node(project.repo.clone());
-            repo_to_node.insert(project.repo.clone(), node_ix);
+        for (key, repo) in repo_mapping.iter() {
+            let node_ix = graph.add_node(repo.details.clone());
+            repo_to_node.insert(repo.details.clone(), node_ix);
             key_to_node.insert(key, node_ix);
         }
 
         // Add edges between nodes with dependency information.
-        for project in project_mapping.values() {
-            let repo = &project.repo;
+        for repo_entry in repo_mapping.values() {
+            let repo = &repo_entry.details;
             let node_ix_of_current_repo = repo_to_node
-                .get(&project.repo)
+                .get(repo)
                 .expect("every repo should have a node in the graph!");
-            // Collect node indices of dependencies for this project.
-            for dependency_key in project.dependencies() {
+            // Collect node indices of dependencies for this repo.
+            for dependency_key in repo_entry.dependencies() {
                 let node_ix_of_dependency = key_to_node.get(dependency_key).ok_or_else(|| {
                     BuildPlanError::MissingProjectDefinition(
                         repo.name.clone(),
@@ -71,7 +84,7 @@ impl Plan {
                     )
                 })?;
 
-                graph.add_edge(*node_ix_of_current_repo, *node_ix_of_dependency, ());
+                graph.add_edge(*node_ix_of_dependency, *node_ix_of_current_repo, ());
             }
         }
 
@@ -111,14 +124,18 @@ mod tests {
     #[test]
     fn generate_plan_with_two_projects() {
         let manifest_str = r#"
-[project.sway.repo]
+[current-repo]
+name = "sway"
+owner = "FuelLas"
+
+[repo.sway.details]
 name = "sway"
 owner = "FuelLabs"
 
-[project.sway]
+[repo.sway]
 dependencies = ["rust-sdk"]
 
-[project.rust-sdk.repo]
+[repo.rust-sdk.details]
 name = "fuels-rs"
 owner = "FuelLabs"
 "#;
@@ -136,18 +153,22 @@ owner = "FuelLabs"
     #[test]
     fn test_neighbor_query_with_cycle() {
         let manifest_str = r#"
-[project.sway.repo]
+[current-repo]
+name = "sway"
+owner = "FuelLas"
+
+[repo.sway.details]
 name = "sway"
 owner = "FuelLabs"
 
-[project.sway]
+[repo.sway]
 dependencies = ["rust-sdk"]
 
-[project.rust-sdk.repo]
+[repo.rust-sdk.details]
 name = "fuels-rs"
 owner = "FuelLabs"
 
-[project.rust-sdk]
+[repo.rust-sdk]
 dependencies = ["sway"]
 "#;
         let manifest = ManifestFile::try_from(manifest_str.to_string())
@@ -181,22 +202,26 @@ dependencies = ["sway"]
     #[test]
     fn test_neighbor_query_without_cycle() {
         let manifest_str = r#"
-[project.sway.repo]
+[current-repo]
+name = "sway"
+owner = "FuelLas"
+
+[repo.sway.details]
 name = "sway"
 owner = "FuelLabs"
 
-[project.sway]
+[repo.sway]
 dependencies = ["rust-sdk", "wallet"]
 
-[project.rust-sdk.repo]
+[repo.rust-sdk.details]
 name = "fuels-rs"
 owner = "FuelLabs"
 
-[project.wallet.repo]
+[repo.wallet.details]
 name = "forc-wallet"
 owner = "FuelLabs"
 
-[project.wallet]
+[repo.wallet]
 dependencies = ["rust-sdk"]
 "#;
         let manifest = ManifestFile::try_from(manifest_str.to_string())
@@ -216,15 +241,13 @@ dependencies = ["rust-sdk"]
         let forc_wallet_owner = "FuelLabs".to_string();
         let forc_wallet_repo = Repo::new(forc_wallet_name, forc_wallet_owner);
 
-        let mut sway_neighbors: Vec<_> = plan
+        let sway_neighbors: Vec<_> = plan
             .neighbors(sway_repo.clone())
             .unwrap()
             .cloned()
             .collect();
-        sway_neighbors.sort();
-        assert_eq!(sway_neighbors.len(), 2);
-        let mut expected_sway_neighbors = [fuels_rs_repo.clone(), forc_wallet_repo.clone()];
-        expected_sway_neighbors.sort();
+        assert_eq!(sway_neighbors.len(), 0);
+        let expected_sway_neighbors = vec![];
         assert_eq!(sway_neighbors, expected_sway_neighbors);
 
         let fuels_rs_neighbors: Vec<_> = plan
@@ -232,14 +255,14 @@ dependencies = ["rust-sdk"]
             .unwrap()
             .cloned()
             .collect();
-        assert_eq!(fuels_rs_neighbors.len(), 0);
-        let expected_fuels_rs_neighbors = vec![];
+        assert_eq!(fuels_rs_neighbors.len(), 2);
+        let expected_fuels_rs_neighbors = vec![forc_wallet_repo.clone(), sway_repo.clone()];
         assert_eq!(fuels_rs_neighbors, expected_fuels_rs_neighbors);
 
         let forc_wallet_neighbors: Vec<_> =
             plan.neighbors(forc_wallet_repo).unwrap().cloned().collect();
         assert_eq!(forc_wallet_neighbors.len(), 1);
-        let expected_forc_wallet_neighbors = vec![fuels_rs_repo];
+        let expected_forc_wallet_neighbors = vec![sway_repo];
         assert_eq!(forc_wallet_neighbors, expected_forc_wallet_neighbors)
     }
 }

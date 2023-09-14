@@ -6,8 +6,17 @@ use crate::error::ManifestFileError;
 
 /// A toml manifest file describing relations between different repositories.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
 pub struct Manifest {
-    pub(crate) project: BTreeMap<String, Project>,
+    pub(crate) repo: BTreeMap<String, RepoEntry>,
+    pub(crate) current_repo: Repo,
+}
+
+impl Manifest {
+    /// Returns a reference to current repo.
+    pub fn current_repo(&self) -> &Repo {
+        &self.current_repo
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -55,16 +64,16 @@ impl TryFrom<String> for ManifestFile {
 /// A repository entry in the manifest, describing a repository and its dependencies.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-pub struct Project {
-    pub(crate) repo: Repo,
+pub struct RepoEntry {
+    pub(crate) details: Repo,
     /// Dependencies of this repo
     dependencies: Option<Vec<String>>,
 }
 
-impl Project {
+impl RepoEntry {
     /// Returns a reference to underlying `Repo`.
-    pub fn repo(&self) -> &Repo {
-        &self.repo
+    pub fn details(&self) -> &Repo {
+        &self.details
     }
 
     /// Returns an iterator over dependencies decribed in this `Project`.
@@ -80,7 +89,11 @@ mod tests {
     #[test]
     fn parse_manifest_file_no_dependencies() {
         let manifest_str = r#"
-[project.sway.repo]
+[current-repo]
+name = "sway"
+owner = "FuelLabs"
+
+[repo.sway.details]
 name = "sway"
 owner = "FuelLabs"
 "#;
@@ -92,14 +105,18 @@ owner = "FuelLabs"
     #[test]
     fn parse_manifest_file_two_projects_with_dependencies() {
         let manifest_str = r#"
-[project.sway.repo]
+[current-repo]
 name = "sway"
 owner = "FuelLabs"
 
-[project.sway]
+[repo.sway.details]
+name = "sway"
+owner = "FuelLabs"
+
+[repo.sway]
 dependencies = ["rust-sdk"]
 
-[project.rust-sdk.repo]
+[repo.rust-sdk.details]
 name = "fuels-rs"
 owner = "FuelLabs"
 "#;

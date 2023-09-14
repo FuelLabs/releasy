@@ -1,23 +1,66 @@
 use crate::cmd::Args;
 use releasy_graph::plan::Repo;
+use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, str::FromStr};
 
-/// An event received.
+/// An event to be emitted.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Event {
     event_type: EventType,
+    client_payload: ClientPayload,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct ClientPayload {
     repo: Repo,
 }
 
+impl ClientPayload {
+    pub fn new(repo: Repo) -> Self {
+        Self { repo }
+    }
+}
+
 impl Event {
-    pub fn new(event_type: EventType, repo: Repo) -> Self {
-        Self { event_type, repo }
+    pub fn new(event_type: EventType, client_payload: ClientPayload) -> Self {
+        Self {
+            event_type,
+            client_payload,
+        }
+    }
+
+    /// Send this event to a target repo using github API.
+    pub async fn send_to_repo(&self, target_repo: &Repo) -> anyhow::Result<()> {
+        let github_token = std::env::var("DISPATCH_TOKEN")?;
+        let client = reqwest::Client::builder().build()?;
+        let request_url = format!(
+            "https://api.github.com/repos/{}/{}/dispatches",
+            target_repo.owner(),
+            target_repo.name()
+        );
+
+        let bearer_token = format!("Bearer {github_token}");
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert(AUTHORIZATION, bearer_token.parse()?);
+        headers.insert(ACCEPT, "application/vnd.github+json".parse()?);
+        headers.insert(USER_AGENT, "releasy".parse()?);
+
+        let json_str = serde_json::to_string(self)?;
+
+        let request = client
+            .request(reqwest::Method::POST, request_url)
+            .headers(headers)
+            .body(json_str);
+
+        request.send().await?;
+        Ok(())
     }
 }
 
 /// Possible event types.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
 pub enum EventType {
     NewCommit,
     NewRelease,
@@ -62,7 +105,8 @@ impl TryFrom<Args> for Event {
         ) -> anyhow::Result<Event> {
             let event_type = EventType::from_str(event)?;
             let repo = Repo::new(repo_name.to_string(), repo_owner.to_string());
-            let event = Event::new(event_type, repo);
+            let client_payload = ClientPayload::new(repo);
+            let event = Event::new(event_type, client_payload);
 
             Ok(event)
         }

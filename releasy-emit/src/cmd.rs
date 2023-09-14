@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 
 /// Command line tool to handle repo different repo dispatch events.
@@ -36,4 +38,10 @@ pub(crate) struct Args {
     /// Cannot use any other flag if this parameter is provided.
     #[arg(long)]
     pub(crate) json: Option<String>,
+
+    /// Path to the manifest file describing repo plan.
+    ///
+    /// By default `repo-plan.toml` expected to be in the current dir.
+    #[arg(long)]
+    pub(crate) path: Option<PathBuf>,
 }
