@@ -17,7 +17,6 @@ pub struct ClientPayload {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(rename_all = "kebab-case")]
 pub struct EventDetails {
     commit_hash: Option<String>,
     release_tag: Option<String>,
