@@ -24,11 +24,11 @@ pub(crate) struct Args {
 
     /// Name of the repo emitted this event.
     #[arg(long)]
-    pub(crate) repo_name: Option<String>,
+    pub(crate) event_repo_name: Option<String>,
 
     /// Owner of the repo emitted this event.
     #[arg(long)]
-    pub(crate) repo_owner: Option<String>,
+    pub(crate) event_repo_owner: Option<String>,
 
     /// Commit hash that triggered this event.
     #[arg(long)]
@@ -37,6 +37,14 @@ pub(crate) struct Args {
     /// Release tag that triggered this event.
     #[arg(long)]
     pub(crate) event_release_tag: Option<String>,
+
+    /// Name of the current repo.
+    #[arg(long)]
+    pub(crate) current_repo_name: String,
+
+    /// Owner of the current repo.
+    #[arg(long)]
+    pub(crate) current_repo_owner: String,
 }
 
 impl TryFrom<Args> for Event {
@@ -62,16 +70,16 @@ impl TryFrom<Args> for Event {
         let event = value
             .event
             .ok_or_else(|| anyhow::anyhow!("event should not be emtpy"))?;
-        let repo_name = value
-            .repo_name
+        let event_repo_name = value
+            .event_repo_name
             .ok_or_else(|| anyhow::anyhow!("repo name should not be emtpy"))?;
-        let repo_owner = value
-            .repo_owner
+        let event_repo_owner = value
+            .event_repo_owner
             .ok_or_else(|| anyhow::anyhow!("repo owner should not be emtpy"))?;
         handle_event_params(
             &event,
-            &repo_name,
-            &repo_owner,
+            &event_repo_name,
+            &event_repo_owner,
             value.event_commit_hash,
             value.event_release_tag,
         )

@@ -4,12 +4,16 @@ mod handle;
 use crate::cmd::Args;
 use clap::Parser;
 use handle::EventHandler;
-use releasy_core::event::Event;
+use releasy_core::{event::Event, repo::Repo};
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    let current_repo_name = args.current_repo_name.clone();
+    let current_repo_owner = args.current_repo_owner.clone();
     let received_event = Event::try_from(args)?;
-    received_event.handle()?;
+    let current_repo = Repo::new(current_repo_name, current_repo_owner);
+
+    received_event.handle(&current_repo)?;
     Ok(())
 }
 
@@ -32,8 +36,10 @@ mod tests {
             event: Some(event_type),
             event_commit_hash: Some(expected_commit_hash.clone()),
             event_release_tag: None,
-            repo_name: Some(repo_name.clone()),
-            repo_owner: Some(repo_owner.clone()),
+            event_repo_name: Some(repo_name.clone()),
+            event_repo_owner: Some(repo_owner.clone()),
+            current_repo_name: repo_name.clone(),
+            current_repo_owner: repo_owner.clone(),
         };
 
         let parsed_event = Event::try_from(args).unwrap();

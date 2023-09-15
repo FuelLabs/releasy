@@ -21,6 +21,10 @@ impl Repo {
     pub fn owner(&self) -> &str {
         &self.owner
     }
+
+    pub fn github_url(&self) -> String {
+        format!("https://github.com/{}/{}.git", self.owner, self.name)
+    }
 }
 
 impl std::fmt::Display for Repo {
