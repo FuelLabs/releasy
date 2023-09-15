@@ -13,11 +13,44 @@ pub struct Event {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ClientPayload {
     repo: Repo,
+    details: EventDetails,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub struct EventDetails {
+    commit_hash: Option<String>,
+    release_tag: Option<String>,
+}
+
+impl EventDetails {
+    pub fn new(commit_hash: Option<String>, release_tag: Option<String>) -> Self {
+        Self {
+            commit_hash,
+            release_tag,
+        }
+    }
+
+    pub fn commit_hash(&self) -> Option<&String> {
+        self.commit_hash.as_ref()
+    }
+
+    pub fn release_tag(&self) -> Option<&String> {
+        self.release_tag.as_ref()
+    }
 }
 
 impl ClientPayload {
-    pub fn new(repo: Repo) -> Self {
-        Self { repo }
+    pub fn new(repo: Repo, details: EventDetails) -> Self {
+        Self { repo, details }
+    }
+
+    pub fn repo(&self) -> &Repo {
+        &self.repo
+    }
+
+    pub fn details(&self) -> &EventDetails {
+        &self.details
     }
 }
 
@@ -79,6 +112,14 @@ impl Event {
             .await
             .map_err(|e| ReleasyCoreError::FailedToSendDispatchRequest(target_repo.clone(), e))?;
         Ok(())
+    }
+
+    pub fn event_type(&self) -> &EventType {
+        &self.event_type
+    }
+
+    pub fn client_payload(&self) -> &ClientPayload {
+        &self.client_payload
     }
 }
 
