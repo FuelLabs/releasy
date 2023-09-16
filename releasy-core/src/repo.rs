@@ -27,10 +27,12 @@ impl Repo {
     pub fn github_url(&self) -> Result<String, ReleasyCoreError> {
         let github_token = std::env::var("GITHUB_TOKEN")
             .map_err(|_| ReleasyCoreError::MissingGithubTokenEnvVariable)?;
+        let github_actor = std::env::var("GITHUB_ACTOR")
+            .map_err(|_| ReleasyCoreError::MissingGithubTokenEnvVariable)?;
 
         Ok(format!(
-            "https://{}@github.com/{}/{}.git",
-            github_token, self.owner, self.name
+            "https://{}:{}@github.com/{}/{}.git",
+            github_actor, github_token, self.owner, self.name
         ))
     }
 }
