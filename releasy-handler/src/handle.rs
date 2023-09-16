@@ -48,10 +48,12 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
     with_tmp_dir(commit_hash, |tmp_dir_path| {
         let absolute_path = tmp_dir_path.canonicalize()?;
 
+        let repo_url = current_repo.github_url()?;
+
         // Clone the repo inside a tmp directory.
         Command::new("git")
             .arg("clone")
-            .arg(current_repo.github_url())
+            .arg(&repo_url)
             .current_dir(&absolute_path)
             .spawn()?
             .wait()?;
@@ -95,7 +97,7 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
         // Push empty commit to remote.
         Command::new("git")
             .arg("push")
-            .arg("origin")
+            .arg(repo_url)
             .arg(&tracking_branch_name)
             .current_dir(&repo_path)
             .spawn()?
