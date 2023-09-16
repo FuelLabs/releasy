@@ -29,7 +29,7 @@ impl Repo {
             .map_err(|_| ReleasyCoreError::MissingGithubTokenEnvVariable)?;
 
         Ok(format!(
-            "https://{}@github.com:{}/{}.git",
+            "https://{}@github.com/{}/{}.git",
             github_token, self.owner, self.name
         ))
     }

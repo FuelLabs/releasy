@@ -49,6 +49,7 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
         let absolute_path = tmp_dir_path.canonicalize()?;
 
         let repo_url = current_repo.github_url()?;
+        println!("{repo_url}");
 
         // Clone the repo inside a tmp directory.
         Command::new("git")
@@ -60,14 +61,37 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
 
         let repo_path = absolute_path.join(current_repo.name());
 
-        // Checkout tracking branch
+        // Set remote url to contain PAT.
         Command::new("git")
-            .arg("checkout")
-            .arg("-b")
-            .arg(&tracking_branch_name)
+            .arg("remote")
+            .arg("set-url")
+            .arg("origin")
+            .arg(&repo_url)
             .current_dir(&repo_path)
             .spawn()?
             .wait()?;
+
+        // Checkout tracking branch
+        let checkout_status = Command::new("git")
+            .arg("checkout")
+            .arg("-b")
+            .arg(&tracking_branch_name)
+            .arg(format!("origin/{}", tracking_branch_name))
+            .current_dir(&repo_path)
+            .spawn()?
+            .wait()?;
+
+        if !checkout_status.success() {
+            // Remote does not have the tracking branch yet. Create a new branch from default
+            // branch.
+            Command::new("git")
+                .arg("checkout")
+                .arg("-b")
+                .arg(&tracking_branch_name)
+                .current_dir(&repo_path)
+                .spawn()?
+                .wait()?;
+        }
 
         // Pull remote changes
         Command::new("git")
@@ -97,7 +121,7 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
         // Push empty commit to remote.
         Command::new("git")
             .arg("push")
-            .arg(repo_url)
+            .arg("origin")
             .arg(&tracking_branch_name)
             .current_dir(&repo_path)
             .spawn()?
@@ -105,8 +129,6 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
 
         Ok(())
     })?;
-
-    // TODO: Push an empty commit to the tracking branch.
     Ok(())
 }
 
