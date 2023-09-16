@@ -23,7 +23,7 @@ impl Repo {
     }
 
     pub fn github_url(&self) -> String {
-        format!("https://github.com/{}/{}.git", self.owner, self.name)
+        format!("git@github.com:{}/{}.git", self.owner, self.name)
     }
 }
 
