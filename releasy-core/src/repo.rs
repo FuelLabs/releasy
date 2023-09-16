@@ -28,7 +28,7 @@ impl Repo {
         let github_token = std::env::var("GITHUB_TOKEN")
             .map_err(|_| ReleasyCoreError::MissingGithubTokenEnvVariable)?;
         let github_actor = std::env::var("GITHUB_ACTOR")
-            .map_err(|_| ReleasyCoreError::MissingGithubTokenEnvVariable)?;
+            .map_err(|_| ReleasyCoreError::MissingGithubActorEnvVariable)?;
 
         Ok(format!(
             "https://{}:{}@github.com/{}/{}.git",

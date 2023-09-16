@@ -8,6 +8,8 @@ pub enum ReleasyCoreError {
     MissingDispatchTokenEnvVariable,
     #[error("GITHUB_TOKEN env variable is missing.")]
     MissingGithubTokenEnvVariable,
+    #[error("GITHUB_ACTOR env variable is missing.")]
+    MissingGithubActorEnvVariable,
     #[error("failed to build a reqwest client for dispatching events.")]
     FailedToBuildReqwestClient,
     #[error("failed to parse `{0}` as a request header.")]

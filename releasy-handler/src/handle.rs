@@ -1,6 +1,7 @@
 use std::{env::current_dir, path::Path, process::Command};
 
 use releasy_core::{
+    default::{DEFAULT_COMMIT_AUTHOR_EMAIL, DEFAULT_COMMIT_AUTHOR_NAME},
     event::{Event, EventType},
     repo::Repo,
 };
@@ -16,6 +17,29 @@ impl EventHandler for Event {
             EventType::NewRelease => handle_new_release(self),
         }
     }
+}
+
+/// Sets global git config to use releasy's dummy email and name for the commit author.
+fn set_git_user() -> anyhow::Result<()> {
+    // Set email.
+    Command::new("git")
+        .arg("config")
+        .arg("--global")
+        .arg("user.email")
+        .arg(DEFAULT_COMMIT_AUTHOR_EMAIL)
+        .spawn()?
+        .wait()?;
+
+    // Set name.
+    Command::new("git")
+        .arg("config")
+        .arg("--global")
+        .arg("user.name")
+        .arg(DEFAULT_COMMIT_AUTHOR_NAME)
+        .spawn()?
+        .wait()?;
+
+    Ok(())
 }
 
 /// Handles the case when there is a new commit to an upstream repository.
@@ -45,11 +69,11 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("target commit hash missing"))?;
     let tracking_branch_name = format!("upgrade/{}-master", source_repo.name());
 
+    set_git_user()?;
     with_tmp_dir(commit_hash, |tmp_dir_path| {
         let absolute_path = tmp_dir_path.canonicalize()?;
 
         let repo_url = current_repo.github_url()?;
-        println!("{repo_url}");
 
         // Clone the repo inside a tmp directory.
         Command::new("git")
