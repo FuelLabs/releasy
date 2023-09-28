@@ -75,7 +75,8 @@ fn default_branch_name(path: &Path) -> anyhow::Result<String> {
     let name = stdout
         .lines()
         .find_map(|line| {
-            if line.starts_with("HEAD branch:") {
+            let line = line.trim();
+            if line.starts_with("HEAD") {
                 // We want the word after `HEAD branch:`, which is 2nd index.
                 line.split(' ').nth(2).map(|word| word.to_string())
             } else {
