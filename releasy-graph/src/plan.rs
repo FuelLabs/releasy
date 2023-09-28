@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{error::BuildPlanError, manifest::Manifest};
 use petgraph::Directed;
-use serde::{Deserialize, Serialize};
+use releasy_core::repo::Repo;
 
 type GraphIx = u32;
 type Node = Repo;
@@ -10,35 +10,6 @@ type Edge = ();
 type Graph = petgraph::stable_graph::StableGraph<Node, Edge, Directed, GraphIx>;
 
 type NodeIx = petgraph::prelude::NodeIndex;
-
-/// Represents a repository, a node in the dependency graph.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Repo {
-    /// Name of the repository.
-    name: String,
-    /// Owner of the repository.
-    owner: String,
-}
-
-impl std::fmt::Display for Repo {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "name: {} - owner: {}", self.name, self.owner)
-    }
-}
-
-impl Repo {
-    pub fn new(name: String, owner: String) -> Self {
-        Self { name, owner }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn owner(&self) -> &str {
-        &self.owner
-    }
-}
 
 /// A plan is describing dependency relations between different repos.
 ///
@@ -79,7 +50,7 @@ impl Plan {
             for dependency_key in repo_entry.dependencies() {
                 let node_ix_of_dependency = key_to_node.get(dependency_key).ok_or_else(|| {
                     BuildPlanError::MissingProjectDefinition(
-                        repo.name.clone(),
+                        repo.name().to_string(),
                         dependency_key.to_string(),
                     )
                 })?;
