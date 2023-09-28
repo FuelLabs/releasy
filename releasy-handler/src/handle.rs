@@ -42,6 +42,46 @@ fn set_git_user() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Rebase the current repository onto given branch.
+fn rebase_repo(onto: &str, path: &Path) -> anyhow::Result<()> {
+    Command::new("git")
+        .arg("rebase")
+        .arg("--onto")
+        .arg(onto)
+        .current_dir(path)
+        .spawn()?
+        .wait()?;
+
+    Ok(())
+}
+
+/// Get the default branch name from origin.
+fn default_branch_name(path: &Path) -> anyhow::Result<String> {
+    let output = Command::new("git")
+        .arg("remote")
+        .arg("show")
+        .arg("origin")
+        .current_dir(path)
+        .spawn()?
+        .wait_with_output()?;
+
+    let stdout = String::from_utf8(output.stdout)?;
+
+    let name = stdout
+        .lines()
+        .find_map(|line| {
+            if line.starts_with("HEAD branch:") {
+                // We want the word after `HEAD branch:`, which is 2nd index.
+                line.split(' ').nth(2).map(|word| word.to_string())
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| anyhow::anyhow!("cannot get default branch name"))?;
+
+    Ok(name)
+}
+
 /// Handles the case when there is a new commit to an upstream repository.
 ///
 /// For our needs, we want to make sure that our tracking branch (which contains patches in
@@ -95,7 +135,7 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
             .spawn()?
             .wait()?;
 
-        // Checkout tracking branch
+        // Checkout tracking branch.
         let checkout_status = Command::new("git")
             .arg("checkout")
             .arg("-b")
@@ -117,7 +157,7 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
                 .wait()?;
         }
 
-        // Pull remote changes
+        // Pull remote changes.
         Command::new("git")
             .arg("pull")
             .arg("origin")
@@ -125,6 +165,12 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
             .current_dir(&repo_path)
             .spawn()?
             .wait()?;
+
+        // Get the default branch name from origin.
+        let default_branch = default_branch_name(&absolute_path)?;
+
+        // Rebase repo onto default branch of remote.
+        rebase_repo(&default_branch, &absolute_path)?;
 
         // Create an empty commit.
         let commit_message = format!(
