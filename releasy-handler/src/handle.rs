@@ -118,7 +118,6 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
     set_git_user()?;
     with_tmp_dir(commit_hash, |tmp_dir_path| {
         let absolute_path = tmp_dir_path.canonicalize()?;
-
         let repo_url = current_repo.github_url()?;
 
         // Clone the repo inside a tmp directory.
@@ -131,12 +130,24 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
 
         let repo_path = absolute_path.join(current_repo.name());
 
+        // Get the default branch name from origin.
+        let default_branch = default_branch_name(&repo_path)?;
+
         // Set remote url to contain PAT.
         Command::new("git")
             .arg("remote")
             .arg("set-url")
             .arg("origin")
             .arg(&repo_url)
+            .current_dir(&repo_path)
+            .spawn()?
+            .wait()?;
+
+        // Pull latest changes to default branch.
+        Command::new("git")
+            .arg("pull")
+            .arg("origin")
+            .arg(&default_branch)
             .current_dir(&repo_path)
             .spawn()?
             .wait()?;
@@ -172,9 +183,6 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
             .spawn()?
             .wait()?;
 
-        // Get the default branch name from origin.
-        let default_branch = default_branch_name(&repo_path)?;
-
         // Rebase repo onto default branch of remote.
         rebase_repo(&default_branch, &repo_path)?;
 
@@ -198,6 +206,7 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
         Command::new("git")
             .arg("push")
             .arg("origin")
+            .arg("-f")
             .arg(&tracking_branch_name)
             .current_dir(&repo_path)
             .spawn()?
