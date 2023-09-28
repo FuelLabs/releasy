@@ -1,4 +1,8 @@
-use std::{env::current_dir, path::Path, process::Command};
+use std::{
+    env::current_dir,
+    path::Path,
+    process::{Command, Stdio},
+};
 
 use releasy_core::{
     default::{DEFAULT_COMMIT_AUTHOR_EMAIL, DEFAULT_COMMIT_AUTHOR_NAME},
@@ -62,8 +66,9 @@ fn default_branch_name(path: &Path) -> anyhow::Result<String> {
         .arg("show")
         .arg("origin")
         .current_dir(path)
-        .spawn()?
-        .wait_with_output()?;
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()?;
 
     let stdout = String::from_utf8(output.stdout)?;
 
