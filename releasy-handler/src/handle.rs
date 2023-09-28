@@ -167,10 +167,10 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
             .wait()?;
 
         // Get the default branch name from origin.
-        let default_branch = default_branch_name(&absolute_path)?;
+        let default_branch = default_branch_name(&repo_path)?;
 
         // Rebase repo onto default branch of remote.
-        rebase_repo(&default_branch, &absolute_path)?;
+        rebase_repo(&default_branch, &repo_path)?;
 
         // Create an empty commit.
         let commit_message = format!(
