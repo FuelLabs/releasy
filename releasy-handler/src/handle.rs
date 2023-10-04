@@ -17,7 +17,8 @@ pub trait EventHandler {
 impl EventHandler for Event {
     fn handle(&self, current_repo: &Repo) -> anyhow::Result<()> {
         match self.event_type() {
-            EventType::NewCommit => handle_new_commit(self, current_repo),
+            EventType::NewCommitToDependency => handle_new_commit_to_dependency(self, current_repo),
+            EventType::NewCommitToSelf => handle_new_commit_to_self(self, current_repo),
             EventType::NewRelease => handle_new_release(self),
         }
     }
@@ -100,7 +101,7 @@ fn default_branch_name(path: &Path) -> anyhow::Result<String> {
 /// ```
 /// upgrade/<source_repo_name>-master
 /// ```
-fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
+fn handle_new_commit_to_dependency(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
     println!(
         "New commit event received from {}, commit hash: {:?}",
         event.client_payload().repo(),
@@ -214,6 +215,14 @@ fn handle_new_commit(event: &Event, current_repo: &Repo) -> anyhow::Result<()> {
 
         Ok(())
     })?;
+    Ok(())
+}
+
+/// Handles the case when there is a new commit to the current repo.
+///
+/// All of the tracking branches should be rebased so that newest commit to master is taken into
+/// account.
+fn handle_new_commit_to_self(_event: &Event, _current_repo: &Repo) -> anyhow::Result<()> {
     Ok(())
 }
 

@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
     let current_repo = manifest.current_repo().clone();
     let plan = Plan::try_from_manifest(manifest)?;
 
-    for target_repo in plan.neighbors(current_repo)? {
+    for target_repo in plan.downstream_repos(current_repo)? {
         event.send_to_repo(target_repo).await?;
         println!("Sending {event:?} to {target_repo:?}");
     }
@@ -50,7 +50,7 @@ mod tests {
             .join(SWAY_WALLET_SDK_TEST_MANIFEST_FILE_NAME);
         let repo_name = "fuels-rs".to_string();
         let repo_owner = "FuelLabs".to_string();
-        let event_type = "new-commit".to_string();
+        let event_type = "new-commit-to-dependency".to_string();
 
         let expected_commit_hash = "337d0eaa130dd18e9e347f83ab4fab76b3a6bd2a".to_string();
         let args = Args {
@@ -64,7 +64,7 @@ mod tests {
         let sway_repo = Repo::new(repo_name, repo_owner);
         let details = EventDetails::new(Some(expected_commit_hash), None);
         let client_payload = ClientPayload::new(sway_repo, details);
-        let expected_event = Event::new(EventType::NewCommit, client_payload);
+        let expected_event = Event::new(EventType::NewCommitToDependency, client_payload);
 
         assert_eq!(parsed_event, expected_event)
     }
@@ -95,7 +95,7 @@ mod tests {
         let plan = Plan::try_from_manifest(manifest).unwrap();
 
         let target_repos = plan
-            .neighbors(current_repo)
+            .downstream_repos(current_repo)
             .unwrap()
             .map(|repo| repo.name())
             .collect::<Vec<_>>();

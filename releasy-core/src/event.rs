@@ -126,7 +126,8 @@ impl Event {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum EventType {
-    NewCommit,
+    NewCommitToDependency,
+    NewCommitToSelf,
     NewRelease,
 }
 
@@ -134,8 +135,10 @@ impl FromStr for EventType {
     type Err = ReleasyCoreError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "new-commit" {
-            Ok(Self::NewCommit)
+        if s == "new-commit-to-dependency" {
+            Ok(Self::NewCommitToDependency)
+        } else if s == "new-commit-to-self" {
+            Ok(Self::NewCommitToSelf)
         } else if s == "new-release" {
             Ok(Self::NewRelease)
         } else {
@@ -149,7 +152,8 @@ impl FromStr for EventType {
 impl Display for EventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EventType::NewCommit => write!(f, "new-commit"),
+            EventType::NewCommitToDependency => write!(f, "new-commit-to-dependency"),
+            EventType::NewCommitToSelf => write!(f, "new-commit-to-self"),
             EventType::NewRelease => write!(f, "new-release"),
         }
     }

@@ -3,7 +3,7 @@ use releasy_core::{
     event::{ClientPayload, Event, EventDetails, EventType},
     repo::Repo,
 };
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
 /// Command line tool to handle repo different repo dispatch events.
 ///
@@ -11,14 +11,14 @@ use std::str::FromStr;
 /// Event details can be provided via flags:
 ///
 /// ```
-/// releasy-handler --event "new-commit" --repo-name "repo-name" --repo-owner "repo-owner"
+/// releasy-handler --event "new-commit-to-dependency" --repo-name "repo-name" --repo-owner "repo-owner"
 /// ```
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub(crate) struct Args {
     /// Type of the event.
     ///
-    /// Possible values: [new-commit, new-release]
+    /// Possible values: [new-commit-to-dependency, new-release, new-commit-to-self]
     #[arg(long)]
     pub(crate) event: Option<String>,
 
@@ -38,13 +38,11 @@ pub(crate) struct Args {
     #[arg(long)]
     pub(crate) event_release_tag: Option<String>,
 
-    /// Name of the current repo.
+    /// Path to the manifest file describing repo plan.
+    ///
+    /// By default `repo-plan.toml` expected to be in the current dir.
     #[arg(long)]
-    pub(crate) current_repo_name: String,
-
-    /// Owner of the current repo.
-    #[arg(long)]
-    pub(crate) current_repo_owner: String,
+    pub(crate) path: Option<PathBuf>,
 }
 
 impl TryFrom<Args> for Event {
