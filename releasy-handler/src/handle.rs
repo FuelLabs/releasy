@@ -317,6 +317,7 @@ where
 
 /// A wrapper around `std::process::Command` that provides easy to use error handling via
 /// `execute()` and `output()` functions.
+#[derive(Debug)]
 struct ReleasyHandlerCommand {
     command: Command,
 }
@@ -342,7 +343,7 @@ impl ReleasyHandlerCommand {
             Ok(())
         } else {
             let error_message = format!(
-                "Command failed with exit code: {}",
+                "Command {self:?} failed with exit code: {}",
                 output.status.code().unwrap_or_default()
             );
             Err(anyhow::anyhow!(error_message))
