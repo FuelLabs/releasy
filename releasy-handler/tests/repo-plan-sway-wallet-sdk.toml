@@ -1,0 +1,22 @@
+[current-repo]
+name = "sway"
+owner = "FuelLabs"
+
+[repo.sway.details]
+name = "sway"
+owner = "FuelLabs"
+
+[repo.sway]
+dependencies = ["rust-sdk", "wallet-cli"]
+
+[repo.rust-sdk.details]
+name = "fuels-rs"
+owner = "FuelLabs"
+
+
+[repo.wallet-cli.details]
+name = "forc-wallet"
+owner = "FuelLabs"
+
+[repo.wallet-cli]
+dependencies = ["rust-sdk"]

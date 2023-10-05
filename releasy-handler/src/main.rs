@@ -7,7 +7,7 @@ use crate::cmd::Args;
 use clap::Parser;
 use handle::EventHandler;
 use releasy_core::{default::DEFAULT_MANIFEST_FILE_NAME, event::Event};
-use releasy_graph::{manifest::ManifestFile, plan::Plan};
+use releasy_graph::manifest::ManifestFile;
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
@@ -22,10 +22,7 @@ fn main() -> anyhow::Result<()> {
         println!("WARNING: {warning}");
     }
     let manifest = manifest_file.manifest();
-    let current_repo = manifest.current_repo().clone();
-    let _plan = Plan::try_from_manifest(manifest)?;
-
-    received_event.handle(&current_repo)?;
+    received_event.handle(manifest)?;
     Ok(())
 }
 
@@ -38,6 +35,7 @@ mod tests {
         event::{ClientPayload, Event, EventDetails, EventType},
         repo::Repo,
     };
+    use releasy_graph::{manifest::ManifestFile, plan::Plan};
 
     const SWAY_WALLET_SDK_TEST_MANIFEST_FILE_NAME: &str = "repo-plan-sway-wallet-sdk.toml";
 
@@ -68,5 +66,44 @@ mod tests {
         let expected_event = Event::new(EventType::NewCommitToDependency, client_payload);
 
         assert_eq!(parsed_event, expected_event)
+    }
+
+    /// In this test we have:
+    ///  - forc-wallet
+    ///  - sway
+    ///  - fuels-rs
+    /// repositories present. The dependency graph between them looks like:
+    ///
+    /// ```
+    /// forc-wallet -> fuels-rs
+    /// sway -> fuels-rs
+    /// sway -> forc-wallet
+    /// ```
+    ///
+    /// and the `current_repo` is `sway`.
+    ///
+    /// This is a simple example and the circular dependency between the sdk and sway is omitted.
+    #[test]
+    fn sway_wallet_sdk_example_test_event_order() {
+        let test_manifest_file = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join(SWAY_WALLET_SDK_TEST_MANIFEST_FILE_NAME);
+
+        let manifest = ManifestFile::from_file(&test_manifest_file)
+            .unwrap()
+            .manifest();
+        let current_repo = manifest.current_repo().clone();
+        assert_eq!(current_repo.name(), "sway");
+
+        let plan = Plan::try_from_manifest(manifest).unwrap();
+
+        let upstream_repos = plan
+            .upstream_repos(current_repo)
+            .unwrap()
+            .map(|repo| repo.name())
+            .collect::<Vec<_>>();
+        let expected_target_repos = vec!["forc-wallet", "fuels-rs"];
+
+        assert_eq!(upstream_repos, expected_target_repos)
     }
 }

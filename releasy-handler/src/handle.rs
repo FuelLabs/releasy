@@ -9,16 +9,27 @@ use releasy_core::{
     event::{Event, EventType},
     repo::Repo,
 };
+use releasy_graph::{manifest::Manifest, plan::Plan};
 
 pub trait EventHandler {
-    fn handle(&self, current_repo: &Repo) -> anyhow::Result<()>;
+    fn handle(&self, plan: Manifest) -> anyhow::Result<()>;
 }
 
 impl EventHandler for Event {
-    fn handle(&self, current_repo: &Repo) -> anyhow::Result<()> {
+    fn handle(&self, manifest: Manifest) -> anyhow::Result<()> {
+        let current_repo = manifest.current_repo().clone();
+        let plan = Plan::try_from_manifest(manifest)?;
         match self.event_type() {
-            EventType::NewCommitToDependency => handle_new_commit_to_dependency(self, current_repo),
-            EventType::NewCommitToSelf => handle_new_commit_to_self(self, current_repo),
+            EventType::NewCommitToDependency => {
+                handle_new_commit_to_dependency(self, &current_repo)
+            }
+            EventType::NewCommitToSelf => {
+                let upstream_dependencies = plan
+                    .upstream_repos(current_repo.clone())?
+                    .cloned()
+                    .collect::<Vec<_>>();
+                handle_new_commit_to_self(self, upstream_dependencies)
+            }
             EventType::NewRelease => handle_new_release(self),
         }
     }
@@ -27,37 +38,30 @@ impl EventHandler for Event {
 /// Sets global git config to use releasy's dummy email and name for the commit author.
 fn set_git_user() -> anyhow::Result<()> {
     // Set email.
-    Command::new("git")
+    ReleasyHandlerCommand::new("git")
         .arg("config")
         .arg("--global")
         .arg("user.email")
         .arg(DEFAULT_COMMIT_AUTHOR_EMAIL)
-        .spawn()?
-        .wait()?;
+        .execute()?;
 
     // Set name.
-    Command::new("git")
+    ReleasyHandlerCommand::new("git")
         .arg("config")
         .arg("--global")
         .arg("user.name")
         .arg(DEFAULT_COMMIT_AUTHOR_NAME)
-        .spawn()?
-        .wait()?;
-
-    Ok(())
+        .execute()
 }
 
 /// Rebase the current repository onto given branch.
 fn rebase_repo(onto: &str, path: &Path) -> anyhow::Result<()> {
-    Command::new("git")
+    ReleasyHandlerCommand::new("git")
         .arg("rebase")
         .arg("--onto")
         .arg(onto)
         .current_dir(path)
-        .spawn()?
-        .wait()?;
-
-    Ok(())
+        .execute()
 }
 
 /// Get the default branch name from origin.
@@ -117,75 +121,48 @@ fn handle_new_commit_to_dependency(event: &Event, current_repo: &Repo) -> anyhow
     let tracking_branch_name = format!("upgrade/{}-master", source_repo.name());
 
     set_git_user()?;
-    with_tmp_dir(commit_hash, |tmp_dir_path| {
-        let absolute_path = tmp_dir_path.canonicalize()?;
-        let repo_url = current_repo.github_url()?;
-
-        // Clone the repo inside a tmp directory.
-        Command::new("git")
-            .arg("clone")
-            .arg(&repo_url)
-            .current_dir(&absolute_path)
-            .spawn()?
-            .wait()?;
-
-        let repo_path = absolute_path.join(current_repo.name());
-
+    with_repo(commit_hash, current_repo, |repo_path| {
         // Get the default branch name from origin.
-        let default_branch = default_branch_name(&repo_path)?;
-
-        // Set remote url to contain PAT.
-        Command::new("git")
-            .arg("remote")
-            .arg("set-url")
-            .arg("origin")
-            .arg(&repo_url)
-            .current_dir(&repo_path)
-            .spawn()?
-            .wait()?;
+        let default_branch = default_branch_name(repo_path)?;
 
         // Pull latest changes to default branch.
-        Command::new("git")
+        ReleasyHandlerCommand::new("git")
             .arg("pull")
             .arg("origin")
             .arg(&default_branch)
-            .current_dir(&repo_path)
-            .spawn()?
-            .wait()?;
+            .current_dir(repo_path)
+            .execute()?;
 
         // Checkout tracking branch.
-        let checkout_status = Command::new("git")
+        let checkout_status = ReleasyHandlerCommand::new("git")
             .arg("checkout")
             .arg("-b")
             .arg(&tracking_branch_name)
             .arg(format!("origin/{}", tracking_branch_name))
-            .current_dir(&repo_path)
-            .spawn()?
-            .wait()?;
+            .current_dir(repo_path)
+            .execute();
 
-        if !checkout_status.success() {
+        if checkout_status.is_err() {
             // Remote does not have the tracking branch yet. Create a new branch from default
             // branch.
-            Command::new("git")
+            ReleasyHandlerCommand::new("git")
                 .arg("checkout")
                 .arg("-b")
                 .arg(&tracking_branch_name)
-                .current_dir(&repo_path)
-                .spawn()?
-                .wait()?;
+                .current_dir(repo_path)
+                .execute()?
         }
 
         // Pull remote changes.
-        Command::new("git")
+        ReleasyHandlerCommand::new("git")
             .arg("pull")
             .arg("origin")
             .arg(&tracking_branch_name)
-            .current_dir(&repo_path)
-            .spawn()?
-            .wait()?;
+            .current_dir(repo_path)
+            .execute()?;
 
         // Rebase repo onto default branch of remote.
-        rebase_repo(&default_branch, &repo_path)?;
+        rebase_repo(&default_branch, repo_path)?;
 
         // Create an empty commit.
         let commit_message = format!(
@@ -194,24 +171,22 @@ fn handle_new_commit_to_dependency(event: &Event, current_repo: &Repo) -> anyhow
             source_repo.owner(),
             source_repo.name()
         );
-        Command::new("git")
+        ReleasyHandlerCommand::new("git")
             .arg("commit")
             .arg("--allow-empty")
             .arg("-m")
             .arg(format!("\"{}\"", commit_message))
-            .current_dir(&repo_path)
-            .spawn()?
-            .wait()?;
+            .current_dir(repo_path)
+            .execute()?;
 
         // Push empty commit to remote.
-        Command::new("git")
+        ReleasyHandlerCommand::new("git")
             .arg("push")
             .arg("origin")
             .arg("-f")
             .arg(&tracking_branch_name)
-            .current_dir(&repo_path)
-            .spawn()?
-            .wait()?;
+            .current_dir(repo_path)
+            .execute()?;
 
         Ok(())
     })?;
@@ -222,7 +197,11 @@ fn handle_new_commit_to_dependency(event: &Event, current_repo: &Repo) -> anyhow
 ///
 /// All of the tracking branches should be rebased so that newest commit to master is taken into
 /// account.
-fn handle_new_commit_to_self(_event: &Event, _current_repo: &Repo) -> anyhow::Result<()> {
+fn handle_new_commit_to_self(
+    event: &Event,
+    upstream_dependencies: Vec<Repo>,
+) -> anyhow::Result<()> {
+    println!("event {event:?} - upstream dependencies {upstream_dependencies:?}");
     Ok(())
 }
 
@@ -256,4 +235,81 @@ where
     // Clean up the temporary directory.
     let _ = std::fs::remove_dir_all(&repo_dir);
     Ok(())
+}
+
+/// Initializes a new temporary directory and clones the given repo into that directory.
+/// Exact steps executed by this function can be listed as:
+///
+///  - git clone
+///  - git remote set-url
+///
+/// Calls the user provided function with the cloned repo's absolute path.
+fn with_repo<F>(tmp_dir_name: &str, repo: &Repo, f: F) -> anyhow::Result<()>
+where
+    F: FnOnce(&Path) -> anyhow::Result<()>,
+{
+    with_tmp_dir(tmp_dir_name, |tmp_dir_path| {
+        let absolute_path = tmp_dir_path.canonicalize()?;
+        let repo_url = repo.github_url()?;
+
+        // Clone the repo inside a tmp directory.
+        ReleasyHandlerCommand::new("git")
+            .arg("clone")
+            .arg(&repo_url)
+            .current_dir(&absolute_path)
+            .execute()?;
+
+        let repo_path = absolute_path.join(repo.name());
+
+        // Set remote url to contain PAT.
+        ReleasyHandlerCommand::new("git")
+            .arg("remote")
+            .arg("set-url")
+            .arg("origin")
+            .arg(&repo_url)
+            .current_dir(&repo_path)
+            .execute()?;
+        f(&repo_path)
+    })
+}
+
+/// A wrapper around `std::process::Command` that provides easy to use error handling via
+/// `execute()` and `output()` functions.
+struct ReleasyHandlerCommand {
+    command: Command,
+}
+
+impl ReleasyHandlerCommand {
+    /// Creates a new `CommandWrapper` with the specified command.
+    fn new<S: AsRef<str>>(cmd: S) -> Self {
+        Self {
+            command: Command::new(cmd.as_ref()),
+        }
+    }
+
+    /// Adds an argument to the command.
+    fn arg<S: AsRef<str>>(&mut self, arg: S) -> &mut Self {
+        self.command.arg(arg.as_ref());
+        self
+    }
+
+    /// Executes the command and returns an `anyhow::Result<()>`.
+    fn execute(&mut self) -> anyhow::Result<()> {
+        let output = self.command.output()?;
+        if output.status.success() {
+            Ok(())
+        } else {
+            let error_message = format!(
+                "Command failed with exit code: {}",
+                output.status.code().unwrap_or_default()
+            );
+            Err(anyhow::anyhow!(error_message))
+        }
+    }
+
+    /// Sets the working directory for the command.
+    fn current_dir<S: AsRef<std::path::Path>>(&mut self, dir: S) -> &mut Self {
+        self.command.current_dir(dir);
+        self
+    }
 }
