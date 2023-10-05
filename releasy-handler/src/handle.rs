@@ -226,7 +226,7 @@ fn handle_new_commit_to_self(
     with_repo(commit_hash, current_repo, |repo_path, default_branch| {
         for tracking_branch_name in upstream_dependencies
             .iter()
-            .map(|repo| format!("upgrade/{}", repo.name()))
+            .map(|repo| format!("upgrade/{}-master", repo.name()))
         {
             rebase_or_create_tracking_branch(&tracking_branch_name, default_branch, repo_path)?;
         }
