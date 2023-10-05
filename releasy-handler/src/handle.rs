@@ -229,6 +229,19 @@ fn handle_new_commit_to_self(
             .map(|repo| format!("upgrade/{}-master", repo.name()))
         {
             rebase_or_create_tracking_branch(&tracking_branch_name, default_branch, repo_path)?;
+            // Create an empty commit.
+            let commit_message =
+                format!("re-run CI after {} commit merged to this repo", commit_hash);
+
+            // Commit an empty commit
+            ReleasyHandlerCommand::new("git")
+                .arg("commit")
+                .arg("--allow-empty")
+                .arg("-m")
+                .arg(format!("\"{}\"", commit_message))
+                .current_dir(repo_path)
+                .execute()?;
+
             // Push rebase into origin.
             ReleasyHandlerCommand::new("git")
                 .arg("push")
