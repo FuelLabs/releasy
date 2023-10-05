@@ -14,14 +14,14 @@ use releasy_graph::manifest::ManifestFile;
 /// Event details can be provided via flags:
 ///
 /// ```
-/// releasy-emit --event "new-commit"
+/// releasy-emit --event "new-commit-to-dependency"
 /// ```
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub(crate) struct Args {
     /// Type of the event.
     ///
-    /// Possible values: [new-commit, new-release]
+    /// Possible values: [new-commit-to-self, new-commit-to-dependency, new-release]
     #[arg(long)]
     pub(crate) event: Option<String>,
 
