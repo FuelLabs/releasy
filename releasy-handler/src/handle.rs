@@ -28,7 +28,7 @@ impl EventHandler for Event {
                     .upstream_repos(current_repo.clone())?
                     .cloned()
                     .collect::<Vec<_>>();
-                handle_new_commit_to_self(self, upstream_dependencies)
+                handle_new_commit_to_self(self, upstream_dependencies, &current_repo)
             }
             EventType::NewRelease => handle_new_release(self),
         }
@@ -93,6 +93,57 @@ fn default_branch_name(path: &Path) -> anyhow::Result<String> {
     Ok(name)
 }
 
+/// Checks if specified tracking branch is present in remote of the repo. If it is missing creates
+/// a new branch from default branch.
+///
+/// After making sure that tracking branch is present, rebases is onto remote version of default
+/// branch.
+fn rebase_or_create_tracking_branch(
+    tracking_branch_name: &str,
+    default_branch: &str,
+    repo_path: &Path,
+) -> anyhow::Result<()> {
+    // Checkout tracking branch.
+    let checkout_status = ReleasyHandlerCommand::new("git")
+        .arg("checkout")
+        .arg("-b")
+        .arg(tracking_branch_name)
+        .arg(format!("origin/{}", tracking_branch_name))
+        .current_dir(repo_path)
+        .execute();
+    if checkout_status.is_err() {
+        // To make sure we are creating the branch from default branch checkout default branch
+        // first.
+        ReleasyHandlerCommand::new("git")
+            .arg("checkout")
+            .arg(default_branch)
+            .current_dir(repo_path)
+            .execute()?;
+
+        // Remote does not have the tracking branch yet. Create a new branch from default
+        // branch.
+        ReleasyHandlerCommand::new("git")
+            .arg("checkout")
+            .arg("-b")
+            .arg(tracking_branch_name)
+            .current_dir(repo_path)
+            .execute()?
+    }
+
+    // Pull remote changes.
+    ReleasyHandlerCommand::new("git")
+        .arg("pull")
+        .arg("origin")
+        .arg(tracking_branch_name)
+        .current_dir(repo_path)
+        .execute()?;
+
+    // Rebase repo onto default branch of remote.
+    rebase_repo(default_branch, repo_path)?;
+
+    Ok(())
+}
+
 /// Handles the case when there is a new commit to an upstream repository.
 ///
 /// For our needs, we want to make sure that our tracking branch (which contains patches in
@@ -120,49 +171,8 @@ fn handle_new_commit_to_dependency(event: &Event, current_repo: &Repo) -> anyhow
         .ok_or_else(|| anyhow::anyhow!("target commit hash missing"))?;
     let tracking_branch_name = format!("upgrade/{}-master", source_repo.name());
 
-    set_git_user()?;
-    with_repo(commit_hash, current_repo, |repo_path| {
-        // Get the default branch name from origin.
-        let default_branch = default_branch_name(repo_path)?;
-
-        // Pull latest changes to default branch.
-        ReleasyHandlerCommand::new("git")
-            .arg("pull")
-            .arg("origin")
-            .arg(&default_branch)
-            .current_dir(repo_path)
-            .execute()?;
-
-        // Checkout tracking branch.
-        let checkout_status = ReleasyHandlerCommand::new("git")
-            .arg("checkout")
-            .arg("-b")
-            .arg(&tracking_branch_name)
-            .arg(format!("origin/{}", tracking_branch_name))
-            .current_dir(repo_path)
-            .execute();
-
-        if checkout_status.is_err() {
-            // Remote does not have the tracking branch yet. Create a new branch from default
-            // branch.
-            ReleasyHandlerCommand::new("git")
-                .arg("checkout")
-                .arg("-b")
-                .arg(&tracking_branch_name)
-                .current_dir(repo_path)
-                .execute()?
-        }
-
-        // Pull remote changes.
-        ReleasyHandlerCommand::new("git")
-            .arg("pull")
-            .arg("origin")
-            .arg(&tracking_branch_name)
-            .current_dir(repo_path)
-            .execute()?;
-
-        // Rebase repo onto default branch of remote.
-        rebase_repo(&default_branch, repo_path)?;
+    with_repo(commit_hash, current_repo, |repo_path, default_branch| {
+        rebase_or_create_tracking_branch(&tracking_branch_name, default_branch, repo_path)?;
 
         // Create an empty commit.
         let commit_message = format!(
@@ -200,9 +210,28 @@ fn handle_new_commit_to_dependency(event: &Event, current_repo: &Repo) -> anyhow
 fn handle_new_commit_to_self(
     event: &Event,
     upstream_dependencies: Vec<Repo>,
+    current_repo: &Repo,
 ) -> anyhow::Result<()> {
-    println!("event {event:?} - upstream dependencies {upstream_dependencies:?}");
-    Ok(())
+    let commit_hash = event
+        .client_payload()
+        .details()
+        .commit_hash()
+        .ok_or_else(|| anyhow::anyhow!("target commit hash missing"))?;
+
+    println!(
+        "New commit event received from this repo, commit hash: {:?}",
+        commit_hash
+    );
+
+    with_repo(commit_hash, current_repo, |repo_path, default_branch| {
+        for tracking_branch_name in upstream_dependencies
+            .iter()
+            .map(|repo| format!("upgrade/{}", repo.name()))
+        {
+            rebase_or_create_tracking_branch(&tracking_branch_name, default_branch, repo_path)?;
+        }
+        Ok(())
+    })
 }
 
 fn handle_new_release(event: &Event) -> anyhow::Result<()> {
@@ -246,8 +275,9 @@ where
 /// Calls the user provided function with the cloned repo's absolute path.
 fn with_repo<F>(tmp_dir_name: &str, repo: &Repo, f: F) -> anyhow::Result<()>
 where
-    F: FnOnce(&Path) -> anyhow::Result<()>,
+    F: FnOnce(&Path, &str) -> anyhow::Result<()>,
 {
+    set_git_user()?;
     with_tmp_dir(tmp_dir_name, |tmp_dir_path| {
         let absolute_path = tmp_dir_path.canonicalize()?;
         let repo_url = repo.github_url()?;
@@ -269,7 +299,19 @@ where
             .arg(&repo_url)
             .current_dir(&repo_path)
             .execute()?;
-        f(&repo_path)
+
+        // Get the default branch name from origin.
+        let default_branch = default_branch_name(&repo_path)?;
+
+        // Pull latest changes to default branch.
+        ReleasyHandlerCommand::new("git")
+            .arg("pull")
+            .arg("origin")
+            .arg(&default_branch)
+            .current_dir(&repo_path)
+            .execute()?;
+
+        f(&repo_path, &default_branch)
     })
 }
 
