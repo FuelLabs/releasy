@@ -229,6 +229,14 @@ fn handle_new_commit_to_self(
             .map(|repo| format!("upgrade/{}-master", repo.name()))
         {
             rebase_or_create_tracking_branch(&tracking_branch_name, default_branch, repo_path)?;
+            // Push rebase into origin.
+            ReleasyHandlerCommand::new("git")
+                .arg("push")
+                .arg("origin")
+                .arg("-f")
+                .arg(&tracking_branch_name)
+                .current_dir(repo_path)
+                .execute()?;
         }
         Ok(())
     })
