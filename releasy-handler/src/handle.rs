@@ -58,8 +58,7 @@ fn set_git_user() -> anyhow::Result<()> {
 fn rebase_repo(onto: &str, path: &Path) -> anyhow::Result<()> {
     ReleasyHandlerCommand::new("git")
         .arg("rebase")
-        .arg("--onto")
-        .arg(onto)
+        .arg(format!("origin/{}", onto))
         .current_dir(path)
         .execute()
 }
@@ -103,40 +102,41 @@ fn rebase_or_create_tracking_branch(
     default_branch: &str,
     repo_path: &Path,
 ) -> anyhow::Result<()> {
-    // Checkout tracking branch.
-    let checkout_status = ReleasyHandlerCommand::new("git")
-        .arg("checkout")
-        .arg("-b")
-        .arg(tracking_branch_name)
-        .arg(format!("origin/{}", tracking_branch_name))
+    // Fetch latest changes from remote.
+    ReleasyHandlerCommand::new("git")
+        .arg("fetch")
+        .arg("origin")
         .current_dir(repo_path)
-        .execute();
-    if checkout_status.is_err() {
-        // To make sure we are creating the branch from default branch checkout default branch
-        // first.
-        ReleasyHandlerCommand::new("git")
-            .arg("checkout")
-            .arg(default_branch)
-            .current_dir(repo_path)
-            .execute()?;
+        .execute()?;
 
-        // Remote does not have the tracking branch yet. Create a new branch from default
-        // branch.
+    // Check if the tracking branch already exists on remote.
+    let missing_tracking_branch = Command::new("git")
+        .arg("ls-remote")
+        .arg("--heads")
+        .arg("origin")
+        .arg(tracking_branch_name)
+        .current_dir(repo_path)
+        .output()?
+        .stdout
+        .is_empty();
+
+    if missing_tracking_branch {
+        // If tracking branch does not exist, create it from the default branch.
         ReleasyHandlerCommand::new("git")
             .arg("checkout")
             .arg("-b")
             .arg(tracking_branch_name)
+            .arg(format!("origin/{}", default_branch))
             .current_dir(repo_path)
-            .execute()?
+            .execute()?;
+    } else {
+        // Checkout the tracking branch if it exists.
+        ReleasyHandlerCommand::new("git")
+            .arg("checkout")
+            .arg(tracking_branch_name)
+            .current_dir(repo_path)
+            .execute()?;
     }
-
-    // Pull remote changes.
-    ReleasyHandlerCommand::new("git")
-        .arg("pull")
-        .arg("origin")
-        .arg(tracking_branch_name)
-        .current_dir(repo_path)
-        .execute()?;
 
     // Rebase repo onto default branch of remote.
     rebase_repo(default_branch, repo_path)?;
