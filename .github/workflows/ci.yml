@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - master
-  pull_request: null
+  pull_request:
   release:
     types:
       - published
@@ -139,4 +139,3 @@ jobs:
           notify_when: failure
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_NOTIFY_BUILD }}
-
