@@ -111,7 +111,8 @@ jobs:
       - cargo-clippy
       - cargo-fmt-check
       - cargo-test-workspace
-      - lint-toml-files pre-publish-check
+      - lint-toml-files 
+      - pre-publish-check
     if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: buildjet-4vcpu-ubuntu-2204
     steps:
