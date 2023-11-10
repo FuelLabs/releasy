@@ -88,11 +88,11 @@ jobs:
         run: >
           cargo install toml-cli
 
-          ./.github/workflows/scripts/verify_tag.sh ${{ github.ref_name }} forc-plugins/releasy-emit/Cargo.toml
+          ./.github/workflows/scripts/verify_tag.sh ${{ github.ref_name }} releasy-emit/Cargo.toml
 
-          ./.github/workflows/scripts/verify_tag.sh ${{ github.ref_name }} forc-plugins/releasy-core/Cargo.toml
+          ./.github/workflows/scripts/verify_tag.sh ${{ github.ref_name }} releasy-core/Cargo.toml
 
-          ./.github/workflows/scripts/verify_tag.sh ${{ github.ref_name }} forc-plugins/releasy-graph/Cargo.toml
+          ./.github/workflows/scripts/verify_tag.sh ${{ github.ref_name }} releasy-graph/Cargo.toml
       - name: Notify if Job Fails
         uses: ravsamhq/notify-slack-action@v2
         if: always()
