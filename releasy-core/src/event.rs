@@ -54,8 +54,8 @@ impl ClientPayload {
 }
 
 impl Event {
-    const ACCEPT: &str = "application/vnd.github+json";
-    const USER_AGENT: &str = "releasy";
+    const ACCEPT: &'static str = "application/vnd.github+json";
+    const USER_AGENT: &'static str = "releasy";
 
     pub fn new(event_type: EventType, client_payload: ClientPayload) -> Self {
         Self {
