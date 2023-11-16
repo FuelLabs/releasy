@@ -6,6 +6,10 @@ use crate::repo;
 pub enum ReleasyCoreError {
     #[error("DISPATCH_TOKEN env variable is missing.\nPlease set the variable to a token that grants read and write access to repos in the dependency tree.")]
     MissingDispatchTokenEnvVariable,
+    #[error("GITHUB_TOKEN env variable is missing.")]
+    MissingGithubTokenEnvVariable,
+    #[error("GITHUB_ACTOR env variable is missing.")]
+    MissingGithubActorEnvVariable,
     #[error("failed to build a reqwest client for dispatching events.")]
     FailedToBuildReqwestClient,
     #[error("failed to parse `{0}` as a request header.")]

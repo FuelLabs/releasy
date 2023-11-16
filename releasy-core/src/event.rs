@@ -13,11 +13,43 @@ pub struct Event {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ClientPayload {
     repo: Repo,
+    details: EventDetails,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct EventDetails {
+    commit_hash: Option<String>,
+    release_tag: Option<String>,
+}
+
+impl EventDetails {
+    pub fn new(commit_hash: Option<String>, release_tag: Option<String>) -> Self {
+        Self {
+            commit_hash,
+            release_tag,
+        }
+    }
+
+    pub fn commit_hash(&self) -> Option<&String> {
+        self.commit_hash.as_ref()
+    }
+
+    pub fn release_tag(&self) -> Option<&String> {
+        self.release_tag.as_ref()
+    }
 }
 
 impl ClientPayload {
-    pub fn new(repo: Repo) -> Self {
-        Self { repo }
+    pub fn new(repo: Repo, details: EventDetails) -> Self {
+        Self { repo, details }
+    }
+
+    pub fn repo(&self) -> &Repo {
+        &self.repo
+    }
+
+    pub fn details(&self) -> &EventDetails {
+        &self.details
     }
 }
 
@@ -80,13 +112,22 @@ impl Event {
             .map_err(|e| ReleasyCoreError::FailedToSendDispatchRequest(target_repo.clone(), e))?;
         Ok(())
     }
+
+    pub fn event_type(&self) -> &EventType {
+        &self.event_type
+    }
+
+    pub fn client_payload(&self) -> &ClientPayload {
+        &self.client_payload
+    }
 }
 
 /// Possible event types.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum EventType {
-    NewCommit,
+    NewCommitToDependency,
+    NewCommitToSelf,
     NewRelease,
 }
 
@@ -94,8 +135,10 @@ impl FromStr for EventType {
     type Err = ReleasyCoreError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "new-commit" {
-            Ok(Self::NewCommit)
+        if s == "new-commit-to-dependency" {
+            Ok(Self::NewCommitToDependency)
+        } else if s == "new-commit-to-self" {
+            Ok(Self::NewCommitToSelf)
         } else if s == "new-release" {
             Ok(Self::NewRelease)
         } else {
@@ -109,7 +152,8 @@ impl FromStr for EventType {
 impl Display for EventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EventType::NewCommit => write!(f, "new-commit"),
+            EventType::NewCommitToDependency => write!(f, "new-commit-to-dependency"),
+            EventType::NewCommitToSelf => write!(f, "new-commit-to-self"),
             EventType::NewRelease => write!(f, "new-release"),
         }
     }

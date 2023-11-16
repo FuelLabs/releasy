@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::error::ReleasyCoreError;
+
 /// Represents a repository, a node in the dependency graph.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Repo {
@@ -20,6 +22,18 @@ impl Repo {
 
     pub fn owner(&self) -> &str {
         &self.owner
+    }
+
+    pub fn github_url(&self) -> Result<String, ReleasyCoreError> {
+        let github_token = std::env::var("GITHUB_TOKEN")
+            .map_err(|_| ReleasyCoreError::MissingGithubTokenEnvVariable)?;
+        let github_actor = std::env::var("GITHUB_ACTOR")
+            .map_err(|_| ReleasyCoreError::MissingGithubActorEnvVariable)?;
+
+        Ok(format!(
+            "https://{}:{}@github.com/{}/{}.git",
+            github_actor, github_token, self.owner, self.name
+        ))
     }
 }
 

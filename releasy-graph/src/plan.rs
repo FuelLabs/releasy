@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{error::BuildPlanError, manifest::Manifest};
-use petgraph::Directed;
+use petgraph::{Directed, Direction};
 use releasy_core::repo::Repo;
 
 type GraphIx = u32;
@@ -70,8 +70,8 @@ impl Plan {
         &self.graph
     }
 
-    /// Returns the immediate neighbors of the given repo.
-    pub fn neighbors(
+    /// Returns the immediate repos which depends on the given repo.
+    pub fn downstream_repos(
         &self,
         repo: Repo,
     ) -> Result<impl Iterator<Item = &Repo> + '_, BuildPlanError> {
@@ -82,7 +82,23 @@ impl Plan {
         let graph = self.graph();
 
         Ok(graph
-            .neighbors(*node_ix)
+            .neighbors_directed(*node_ix, Direction::Outgoing)
+            .map(|neighbor_ix| &graph[neighbor_ix]))
+    }
+
+    /// Returns the immediate repos which is dependended by the given repo.
+    pub fn upstream_repos(
+        &self,
+        repo: Repo,
+    ) -> Result<impl Iterator<Item = &Repo> + '_, BuildPlanError> {
+        let node_ix = self
+            .repo_to_node
+            .get(&repo)
+            .ok_or(BuildPlanError::RepoNotFoundInGraph(repo))?;
+        let graph = self.graph();
+
+        Ok(graph
+            .neighbors_directed(*node_ix, Direction::Incoming)
             .map(|neighbor_ix| &graph[neighbor_ix]))
     }
 }
@@ -156,7 +172,7 @@ dependencies = ["sway"]
         let fuels_rs_repo = Repo::new(fuels_rs_name, fuels_rs_owner);
 
         let sway_neighbors: Vec<_> = plan
-            .neighbors(sway_repo.clone())
+            .downstream_repos(sway_repo.clone())
             .unwrap()
             .cloned()
             .collect();
@@ -164,7 +180,11 @@ dependencies = ["sway"]
         let expected_sway_neighbors = [fuels_rs_repo.clone()];
         assert_eq!(sway_neighbors, expected_sway_neighbors);
 
-        let fuels_rs_neighbors: Vec<_> = plan.neighbors(fuels_rs_repo).unwrap().cloned().collect();
+        let fuels_rs_neighbors: Vec<_> = plan
+            .downstream_repos(fuels_rs_repo)
+            .unwrap()
+            .cloned()
+            .collect();
         assert_eq!(fuels_rs_neighbors.len(), 1);
         let expected_fuels_rs_neighbors = [sway_repo];
         assert_eq!(fuels_rs_neighbors, expected_fuels_rs_neighbors)
@@ -213,7 +233,7 @@ dependencies = ["rust-sdk"]
         let forc_wallet_repo = Repo::new(forc_wallet_name, forc_wallet_owner);
 
         let sway_neighbors: Vec<_> = plan
-            .neighbors(sway_repo.clone())
+            .downstream_repos(sway_repo.clone())
             .unwrap()
             .cloned()
             .collect();
@@ -222,7 +242,7 @@ dependencies = ["rust-sdk"]
         assert_eq!(sway_neighbors, expected_sway_neighbors);
 
         let fuels_rs_neighbors: Vec<_> = plan
-            .neighbors(fuels_rs_repo.clone())
+            .downstream_repos(fuels_rs_repo.clone())
             .unwrap()
             .cloned()
             .collect();
@@ -230,8 +250,11 @@ dependencies = ["rust-sdk"]
         let expected_fuels_rs_neighbors = vec![forc_wallet_repo.clone(), sway_repo.clone()];
         assert_eq!(fuels_rs_neighbors, expected_fuels_rs_neighbors);
 
-        let forc_wallet_neighbors: Vec<_> =
-            plan.neighbors(forc_wallet_repo).unwrap().cloned().collect();
+        let forc_wallet_neighbors: Vec<_> = plan
+            .downstream_repos(forc_wallet_repo)
+            .unwrap()
+            .cloned()
+            .collect();
         assert_eq!(forc_wallet_neighbors.len(), 1);
         let expected_forc_wallet_neighbors = vec![sway_repo];
         assert_eq!(forc_wallet_neighbors, expected_forc_wallet_neighbors)
