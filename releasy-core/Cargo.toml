@@ -1,7 +1,13 @@
 [package]
 name = "releasy-core"
 version = "0.0.0"
-edition = "2021"
+description = "releasy core functionality for emitting or receiving new events."
+exclude = ["/tests"]
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 reqwest = "0.11.20"

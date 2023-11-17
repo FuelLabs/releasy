@@ -1,13 +1,17 @@
 [package]
 name = "releasy-graph"
 version = "0.0.0"
-edition = "2021"
-publish = false
 description = "A utility library for describing cross-repo relations in the form of a dependency graph."
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 petgraph = "0.6.4"
-releasy-core = { path = "../releasy-core/" }
+releasy-core = { version = "0.0.0", path = "../releasy-core/" }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_ignored = "0.1.9"
 thiserror = "1.0.48"
