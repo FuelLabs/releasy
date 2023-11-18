@@ -1,3 +1,10 @@
 [workspace]
 resolver = "1"
 members = ["releasy-graph", "releasy-emit", "releasy-core", "releasy-handler"]
+
+[workspace.package]
+edition = "2021"
+authors = ["Fuel Labs <contact@fuel.sh>"]
+homepage = "https://fuel.network/"
+license = "Apache-2.0"
+repository = "https://github.com/FuelLabs/releasy"

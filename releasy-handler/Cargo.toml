@@ -1,11 +1,17 @@
 [package]
 name = "releasy-handler"
 version = "0.0.0"
-edition = "2021"
+description = "A binary to handle incoming releasy events."
 exclude = ["/tests"]
+
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 anyhow = "1.0.75"
 clap = { version = "4.4.3", features = ["derive"] }
-releasy-core = { path = "../releasy-core/" }
-releasy-graph = { path = "../releasy-graph/" }
+releasy-core = { version = "0.0.0", path = "../releasy-core/" }
+releasy-graph = { version = "0.0.0", path = "../releasy-graph/" }
