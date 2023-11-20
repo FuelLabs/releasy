@@ -1,6 +1,6 @@
 [package]
 name = "releasy-core"
-version = "0.0.0"
+version = "0.1.0"
 description = "releasy core functionality for emitting or receiving new events."
 exclude = ["/tests"]
 authors.workspace = true
