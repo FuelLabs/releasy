@@ -1,6 +1,6 @@
 [package]
 name = "releasy-emit"
-version = "0.0.0"
+version = "0.1.0"
 description = "releasy binary to emit new commit events to downstream repos."
 exclude = ["/tests"]
 
@@ -13,8 +13,8 @@ repository.workspace = true
 [dependencies]
 anyhow = "1.0.75"
 clap = { version = "4.4.2", features = ["derive"] }
-releasy-core = { version = "0.0.0", path = "../releasy-core" }
-releasy-graph = { version = "0.0.0", path = "../releasy-graph/" }
+releasy-core = { version = "0.1.0", path = "../releasy-core" }
+releasy-graph = { version = "0.1.0", path = "../releasy-graph/" }
 reqwest = "0.11.20"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.106"

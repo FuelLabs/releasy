@@ -682,7 +682,7 @@ dependencies = [
 
 [[package]]
 name = "releasy-core"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "reqwest",
  "serde",
@@ -692,7 +692,7 @@ dependencies = [
 
 [[package]]
 name = "releasy-emit"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -706,7 +706,7 @@ dependencies = [
 
 [[package]]
 name = "releasy-graph"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "petgraph",
  "releasy-core",
@@ -718,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "releasy-handler"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
